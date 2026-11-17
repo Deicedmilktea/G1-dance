@@ -1,0 +1,20 @@
+--- a/general_motion_retargeting/utils/smpl.py
++++ b/general_motion_retargeting/utils/smpl.py
+@@ -74,14 +74,16 @@
+         "mocap_frame_rate": torch.tensor(30),
+     }
+ 
++    num_frames = smpl_params_global["body_pose"].shape[0]
+     body_model = smplx.create(
+         smplx_body_model_path,
+         "smplx",
+         gender="neutral",
+         use_pca=False,
++        num_betas=int(betas.shape[-1]),
++        batch_size=num_frames,
+     )
+ 
+-    num_frames = smpl_params_global["body_pose"].shape[0]
+     smplx_output = body_model(
+         betas=torch.tensor(smplx_data["betas"]).float().view(1, -1),  # (16,)
+         global_orient=torch.tensor(smplx_data["root_orient"]).float(),  # (N, 3)

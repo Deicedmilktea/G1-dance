@@ -1,0 +1,15 @@
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -41,9 +41,9 @@
+ packages = ["src/supermimic"]
+ 
+ [tool.uv.sources]
+-mjlab = { git = "https://github.com/mujocolab/mjlab", rev = "8bb2bc9e187797689ec82c78c35019afd2fd0376" }
+-torch = { index = "pytorch-cu130", marker = "sys_platform != 'darwin'" }
+-warp-lang = { index = "nvidia", marker = "sys_platform != 'darwin'" }
++mjlab = { path = "../mjlab", editable = true }
++torch = { path = "../../data/downloads/wheels/torch-2.14.1+cu126-cp312-cp312-manylinux_2_28_x86_64.whl" }
++warp-lang = { path = "../../data/downloads/wheels/warp_lang-1.18.0+cu12-py3-none-manylinux_2_28_x86_64.whl" }
+ 
+ [[tool.uv.index]]
+ url = "https://pypi.org/simple"

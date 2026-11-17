@@ -1,0 +1,25 @@
+{
+  "experiment": "EXP-020",
+  "motion": "Oldschool",
+  "duration_s": 11.94,
+  "display_seed": 0,
+  "held_out_seeds": [201, 202, 204, 213, 227],
+  "inputs": {
+    "baseline": {
+      "label": "NJU release e13i_0291000",
+      "sha256": "3ff632f09b07e6dd26d1cbf46ba81dfc5f03368b26ef0af0ec217671cf7b2525"
+    },
+    "candidate": {
+      "label": "EXP-017 staged high-hop RL",
+      "sha256": "d23966d7e05a90f10fc547363fb26296ee1b2f41d055bf979a385bada0647a2a"
+    },
+    "original": {
+      "label": "Original GVHMR-to-G1 retarget",
+      "sha256": "6f4f0e218a506b63452ebf9542e27a39bb30d13369cbcd528a4344ff1e80e2d7"
+    },
+    "high": {
+      "label": "Locally revised high-hop target",
+      "sha256": "f000cab90b4f6d6d6f2f8fe9e58cc5fa7122f5ba1222ee5bd80cca0a8ba5df41"
+    }
+  }
+}

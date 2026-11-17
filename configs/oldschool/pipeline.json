@@ -1,0 +1,15 @@
+{
+  "name": "oldschool",
+  "video": "data/video/oldschool_full.mp4",
+  "frames": 359,
+  "source_fps": 30,
+  "control_fps": 50,
+  "robot_xml": "third_party/mjlab/src/mjlab/asset_zoo/robots/unitree_g1/xmls/g1.xml",
+  "pretrained_checkpoint": "models/supermimic/e13i_0291000/ckpt_e13i_0291000.pt",
+  "reconstruction_output": "outputs/gvhmr/oldschool_full_v1",
+  "retarget_output": "outputs/retarget/oldschool_full_v1/drift",
+  "reference_csv": "outputs/retarget/oldschool_full_v1/drift/oldschool_full.csv",
+  "motion_npz": "outputs/motions/oldschool_full_v1.npz",
+  "low_hop_npz": "outputs/evaluation/oldschool_jump_audit_v1/oldschool_local_low_hop.npz",
+  "high_hop_npz": "outputs/evaluation/oldschool_higher_hop_v1/shared/oldschool_higher_hop.npz"
+}

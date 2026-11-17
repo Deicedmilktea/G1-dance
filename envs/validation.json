@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-09",
+  "scope": "Environment integrity baseline for motion reconstruction and SuperMimic training",
+  "motion": {
+    "python": "3.10.21",
+    "base_prefix": ".runtime/python/cpython-3.10.21-linux-x86_64-gnu",
+    "torch": "2.5.1+cu121",
+    "mujoco": "3.3.7",
+    "compatible_packages": 147,
+    "gvhmr_gmr_imports": true,
+    "cuda_transforms": true,
+    "pytorch3d_scope": "pure Python transforms subset"
+  },
+  "training": {
+    "python": "3.12.3",
+    "torch": "2.14.1+cu126",
+    "warp": "1.18.0",
+    "mujoco": "3.16.0",
+    "compatible_packages": 151,
+    "source": "third_party/SuperMimic-Repro-Sim2Real/src/supermimic",
+    "trainer_import": true,
+    "torch_cuda": true,
+    "warp_compiled_cuda_kernel": true
+  },
+  "network_downloads": false
+}

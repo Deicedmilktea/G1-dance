@@ -1,0 +1,190 @@
+--- a/src/supermimic/config.py
++++ b/src/supermimic/config.py
+@@ -33,6 +33,7 @@
+     future_frames: int = 10
+     compact_library: bool = False
+     anchor_obs: bool = False
++    heading_obs_mode: str = "off"  # off | zero (matched control) | error (two pelvis-heading features)
+     # Waist-locked G1 (real robot mode_machine 6, "g1_29dof_lock_waist_rev_1_0"): waist roll/pitch removed from the
+     # simulated model, 29-d action/observation interface unchanged (actions 13/14 ignored, q/dq 13/14 read 0).
+     lock_waist: bool = False
+--- a/src/supermimic/envs/tracking_env_cfg.py
++++ b/src/supermimic/envs/tracking_env_cfg.py
+@@ -116,6 +116,7 @@
+     bin_frames: int = 50
+     compact_library: bool = False
+     anchor_obs: bool = False  # add BeyondMimic anchor-relative pose (9) to the goal group (plan D5 alt.)
++    heading_obs_mode: str = "off"  # off | zero | error; two current pelvis-heading features
+     debug_vis: bool = False  # draw the reference ghost in the viewer (scripts/play.py)
+     # Waist-locked robot (real G1 mode_machine 6): waist roll/pitch removed from the model, actions 13/14 ignored,
+     # observed q/dq 13/14 exactly 0. lock_waist_refs: "feasible" = references with waist roll/pitch (and rates) zeroed
+@@ -140,6 +141,8 @@
+ 
+ 
+ def make_env_cfg(a: SuperMimicEnvCfgArgs) -> ManagerBasedRlEnvCfg:
++    from supermimic.heading_feedback import heading_feedback_dim
++    heading_dimension = heading_feedback_dim(a.heading_obs_mode)
+     # ---------------------------------------------------------------- observations
+     noise = (lambda lo, hi: Unoise(n_min=lo, n_max=hi)) if a.obs_noise else (lambda lo, hi: None)
+     if a.lock_waist:
+@@ -192,6 +195,10 @@
+                     if a.anchor_obs
+                     else {}
+                 ),
++                **({"heading_error": ObservationTermCfg(
++                    func=sm_obs.heading_error_observation,
++                    params={"command_name": "motion", "mode": a.heading_obs_mode},
++                )} if heading_dimension else {}),
+             },
+             concatenate_terms=True,
+             enable_corruption=a.obs_noise,
+--- a/src/supermimic/envs/mdp/observations.py
++++ b/src/supermimic/envs/mdp/observations.py
+@@ -14,6 +14,13 @@
+     """(N, K*68) future reference-frame features (plan D5)."""
+     command = cast(MultiClipMotionCommand, env.command_manager.get_term(command_name))
+     return command.goal
++
++
++def heading_error_observation(env: ManagerBasedRlEnv, command_name: str, mode: str) -> torch.Tensor:
++    """Current pelvis heading relative to the current reference, not a future rate."""
++    from supermimic.heading_feedback import heading_feedback
++    command = cast(MultiClipMotionCommand, env.command_manager.get_term(command_name))
++    return heading_feedback(command.robot_root_quat_w, command.root_quat_w, mode)
+ 
+ 
+ def _slots(env: ManagerBasedRlEnv, robot) -> torch.Tensor:
+--- a/src/supermimic/imagination/policy_trainer.py
++++ b/src/supermimic/imagination/policy_trainer.py
+@@ -35,6 +35,7 @@
+     obs_noise: bool = True
+     compile: str | None = "default"
+     anchor_obs: bool = False  # None | "default" | "reduce-overhead" | "max-autotune-no-cudagraphs"
++    heading_obs_mode: str = "off"  # off | zero | error; must match the real observation
+     # Saturating-IMU observation model in imagination (copied from EnvCfg.imu_* by the training loop; 0 = off).
+     imu_sat_prob: float = 0.0
+     imu_gyro_limit: float = 8.727
+@@ -75,7 +76,7 @@
+             from supermimic.envs.imu_model import ImuImagCfg
+ 
+             imu = ImuImagCfg(cfg.imu_sat_prob, cfg.imu_gyro_limit, cfg.imu_accel_k_max, cfg.imu_init_tilt_deg)
+-        ro = imagine(self.wm, self.policy, self.lib, start, cfg.horizon, cfg.future_frames, obs_noise=cfg.obs_noise, step_fn=self.step_fn, anchor_obs=cfg.anchor_obs, imu=imu)
++        ro = imagine(self.wm, self.policy, self.lib, start, cfg.horizon, cfg.future_frames, obs_noise=cfg.obs_noise, step_fn=self.step_fn, anchor_obs=cfg.anchor_obs, imu=imu, heading_obs_mode=cfg.heading_obs_mode)
+         feat, goals, e_root = self._critic_inputs(ro)
+         if cfg.use_critic:
+             v_H = self.critic(feat[-1], goals[-1], xi_norm, e_root[-1])
+--- a/src/supermimic/imagination/rollout.py
++++ b/src/supermimic/imagination/rollout.py
+@@ -11,6 +11,7 @@
+ from supermimic.envs.mdp.motion_library import MotionLibrary
+ from supermimic.imagination.compiled import REWARD_TERM_NAMES, ImagStep
+ from supermimic.policy.nets import Policy
++from supermimic.heading_feedback import heading_feedback
+ from supermimic.kinematics.rotations import projected_gravity
+ from supermimic.world_model.heads import ReferenceFrame, analytic_observation, anchor_relative_obs, flatten_history_term_major
+ from supermimic.world_model.wm_trainer import reference_at
+@@ -45,6 +46,7 @@
+     step_fn: ImagStep | None = None,
+     anchor_obs: bool = False,
+     imu: ImuImagCfg | None = None,
++    heading_obs_mode: str = "off",
+ ) -> ImagRollout:
+     device = start.state.device
+     n = start.state.shape[0]
+@@ -64,14 +66,16 @@
+             return o + (torch.rand_like(o) * 2 - 1) * noise_half
+         return o
+ 
+-    def make_goal(frame_t, ref_t, anchor_pose):
++    def make_goal(frame_t, ref_t, anchor_pose, state_t):
+         g = lib.goal_window(frame_t, future_frames)
+-        if not anchor_obs:
+-            return g
+-        rel = anchor_relative_obs(anchor_pose[..., 0:3], anchor_pose[..., 3:7], ref_t.body_pos_w[..., ai, :], ref_t.body_quat_w[..., ai, :])
+-        if obs_noise:
+-            rel = rel + (torch.rand_like(rel) * 2 - 1) * anchor_noise_half
+-        return torch.cat([g, rel], dim=-1)
++        if anchor_obs:
++            rel = anchor_relative_obs(anchor_pose[..., 0:3], anchor_pose[..., 3:7], ref_t.body_pos_w[..., ai, :], ref_t.body_quat_w[..., ai, :])
++            if obs_noise:
++                rel = rel + (torch.rand_like(rel) * 2 - 1) * anchor_noise_half
++            g = torch.cat([g, rel], dim=-1)
++        if heading_obs_mode != "off":
++            g = torch.cat([g, heading_feedback(state_t[..., 3:7], ref_t.root_quat_w, heading_obs_mode)], dim=-1)
++        return g
+ 
+     # Saturating-IMU model (DEVIATION when imu.prob > 0, envs/imu_model.py): for flagged rollouts the policy reads the
+     # clipped gyro and a gravity estimate integrated from it, started from the true gravity of the oldest history state
+@@ -125,7 +129,7 @@
+         anchor_pose = torch.cat([b0["pos"][..., ai, :], b0["quat"][..., ai, :]], dim=-1)
+     else:
+         anchor_pose = None
+-    goals = [make_goal(frame, ref, anchor_pose)]
++    goals = [make_goal(frame, ref, anchor_pose, s)]
+     e_roots = [wm.heads.root_error_features(s, ref)]
+     term_sum = torch.zeros(len(REWARD_TERM_NAMES), device=device)
+ 
+@@ -149,7 +153,7 @@
+         rewards.append(r)
+         dhats.append(d)
+         survivals.append(c)
+-        goals.append(make_goal(frame, ref, anchor_pose))
++        goals.append(make_goal(frame, ref, anchor_pose, s))
+         e_roots.append(wm.heads.root_error_features(s, ref))
+         frames.append(frame)
+ 
+--- a/src/supermimic/training/loop.py
++++ b/src/supermimic/training/loop.py
+@@ -30,8 +30,10 @@
+ class Trainer:
+     def __init__(self, cfg: TrainConfig):
+         self.cfg = cfg
+-        cfg.policy.goal_dim = cfg.env.future_frames * 68 + (9 if cfg.env.anchor_obs else 0)
++        from supermimic.heading_feedback import heading_feedback_dim
++        cfg.policy.goal_dim = cfg.env.future_frames * 68 + (9 if cfg.env.anchor_obs else 0) + heading_feedback_dim(cfg.env.heading_obs_mode)
+         cfg.policy_trainer.anchor_obs = cfg.env.anchor_obs
++        cfg.policy_trainer.heading_obs_mode = cfg.env.heading_obs_mode
+         cfg.policy_trainer.imu_sat_prob = cfg.env.imu_sat_prob
+         cfg.policy_trainer.imu_gyro_limit = cfg.env.imu_gyro_limit
+         cfg.policy_trainer.imu_accel_k_max = cfg.env.imu_accel_k_max
+@@ -81,6 +83,7 @@
+                 replay_capacity=cfg.env.replay_capacity,
+                 compact_library=cfg.env.compact_library,
+                 anchor_obs=cfg.env.anchor_obs,
++                heading_obs_mode=cfg.env.heading_obs_mode,
+                 lock_waist=cfg.env.lock_waist,
+                 lock_waist_refs=cfg.env.lock_waist_refs,
+                 locked_action_weight=cfg.env.locked_action_weight,
+--- /dev/null
++++ b/src/supermimic/heading_feedback.py
+@@ -0,0 +1,30 @@
++"""Optional pelvis heading-error features shared by simulation and imagination."""
++
++from __future__ import annotations
++
++import torch
++
++from supermimic.kinematics.rotations import heading_yaw, quat_normalize
++
++HEADING_FEEDBACK_DIM = 2
++HEADING_FEEDBACK_MODES = ("off", "zero", "error")
++
++
++def heading_feedback_dim(mode: str) -> int:
++    if mode not in HEADING_FEEDBACK_MODES:
++        raise ValueError(f"Unknown heading feedback mode: {mode}")
++    return 0 if mode == "off" else HEADING_FEEDBACK_DIM
++
++
++def heading_feedback(robot_quat: torch.Tensor, reference_quat: torch.Tensor, mode: str) -> torch.Tensor:
++    """[sin(target_yaw - robot_yaw), cos(target_yaw - robot_yaw) - 1].
++
++    Quaternions use wxyz. Features are zero when aligned, continuous across the
++    +/-pi boundary, and unchanged by a common world-yaw rotation. The zero mode
++    keeps exactly the same interface as error mode without exposing the error.
++    """
++    dimension = heading_feedback_dim(mode)
++    if mode != "error":
++        return robot_quat.new_zeros((*robot_quat.shape[:-1], dimension))
++    error = heading_yaw(quat_normalize(reference_quat)) - heading_yaw(quat_normalize(robot_quat))
++    return torch.stack((torch.sin(error), torch.cos(error)-1.0), dim=-1)

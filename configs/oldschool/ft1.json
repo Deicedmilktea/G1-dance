@@ -1,0 +1,51 @@
+{
+  "run_name": "oldschool_full_ft1_seed0",
+  "checkpoint": "models/supermimic/e13i_0291000/ckpt_e13i_0291000.pt",
+  "motion": "outputs/motions/oldschool_full_v1.npz",
+  "motion_frames": 597,
+  "log_root": "outputs/training",
+  "additional_steps": 600,
+  "diagnostic_batch_size": 64,
+  "body_orientation_std": 0.4,
+  "overrides": {
+    "seed": 0,
+    "env": {
+      "num_envs": 4096,
+      "episode_length_s": 12,
+      "replay_capacity": 512,
+      "compact_library": true,
+      "domain_randomization": false,
+      "dr_kp_range": null,
+      "dr_torso_mass_add": null,
+      "action_noise_std": 0.05,
+      "obs_noise": true,
+      "reset_noise": true,
+      "sampling_mode": "return",
+      "fail_reset_frac": 0,
+      "fail_reset_list": null,
+      "heading_obs_mode": "off"
+    },
+    "wm_trainer": {
+      "batch_size": 2048,
+      "batches_per_update": 2,
+      "window": 8,
+      "compile": null
+    },
+    "policy_trainer": {
+      "batch_size": 2048,
+      "horizon": 16,
+      "compile": null
+    },
+    "schedule": {
+      "warmup_iterations": 64,
+      "log_interval": 50,
+      "checkpoint_interval": 200,
+      "max_hours": 0.2,
+      "lr_constant": 1e-05,
+      "updates_per_env_step": 0.4
+    }
+  },
+  "resource_note": "Use the previously profiled 4096-env/2048-batch combination to retain GPU headroom with concurrent desktop use.",
+  "checkpoint_selection": "Evaluate the final checkpoint only. Intermediate checkpoints are for recovery.",
+  "reference_note": "Use the unedited complete 597-frame oldschool reference."
+}

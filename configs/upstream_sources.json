@@ -1,0 +1,65 @@
+{
+  "note": "上游源码使用下列固定版本；本地适配记录在对应条目中。",
+  "sources": [
+    {
+      "name": "GVHMR",
+      "local_path": "third_party/GVHMR",
+      "repository": "https://github.com/zju3dv/GVHMR",
+      "commit": "ee960bb6e2ea2d381aa97f08e9b71ef320b624b1",
+      "source_archive": "https://codeload.github.com/zju3dv/GVHMR/tar.gz/ee960bb6e2ea2d381aa97f08e9b71ef320b624b1"
+    },
+    {
+      "name": "GMR",
+      "local_path": "third_party/GMR",
+      "repository": "https://github.com/YanjieZe/GMR",
+      "commit": "25f56db79ac411258b377b6d4ccba0c8ff3372ac",
+      "source_archive": "https://codeload.github.com/YanjieZe/GMR/tar.gz/25f56db79ac411258b377b6d4ccba0c8ff3372ac",
+      "local_patch": "envs/motion/gmr-gvhmr-batch.patch",
+      "local_patch_note": "Explicit SMPL-X beta count and batch size for loading GVHMR sequences; preserves all predicted coefficients and zero padding.",
+      "patched_smpl_py_sha256": "d10932304713b73d75e112e8dde2a2bb3d44f3758efcb86a66f4c8074a5cd510"
+    },
+    {
+      "name": "mjlab",
+      "local_path": "third_party/mjlab",
+      "repository": "https://github.com/mujocolab/mjlab",
+      "commit": "8bb2bc9e187797689ec82c78c35019afd2fd0376",
+      "source_archive": "https://codeload.github.com/mujocolab/mjlab/tar.gz/8bb2bc9e187797689ec82c78c35019afd2fd0376"
+    },
+    {
+      "name": "pytorch3d",
+      "local_path": "third_party/pytorch3d",
+      "repository": "https://github.com/facebookresearch/pytorch3d",
+      "source_archive": "https://codeload.github.com/facebookresearch/pytorch3d/tar.gz/refs/heads/main",
+      "archive_sha256": "57d50439e86cd423aaee8f2aef5ab5008d9ddce35c0744d56551359f18aca4cd",
+      "version": "0.7.9",
+      "build": "PYTORCH3D_NO_EXTENSION=1; pure Torch transforms only",
+      "bundled_source_sha256": "9c1ce275320975d4360ddbb8dae7f49fdc9d6867f32f8dc59ced9a912c002a46"
+    },
+    {
+      "name": "SuperMimic-Repro-Sim2Real",
+      "local_path": "third_party/SuperMimic-Repro-Sim2Real",
+      "repository": "https://github.com/NJU-R-L-Group-Embodied-Lab/SuperMimic-Repro-Sim2Real",
+      "commit": "f8f60d7bbdba68468c050ef100af02d752ca238e",
+      "archive_sha256": "2d934bac72c78c17acc7f8a8cd4197419b22f43d8d751d4689844dc20a71b083",
+      "local_dependency_patch": "envs/training/nju-local-sources.patch",
+      "local_heading_patch": "envs/training/heading-feedback.patch",
+      "heading_patch_base_sha256": {
+        "src/supermimic/config.py": "bd56fab500acd59fcb41cf2e814040410a9ffb6643790547db893d8322b4dfa8",
+        "src/supermimic/envs/tracking_env_cfg.py": "dd6835fd4e1c805f398298a5589521e323245d5a00976315a9999e7eaf270c57",
+        "src/supermimic/envs/mdp/observations.py": "94ea8a47b2da7c04be724d3497af03d487a3c1904fe01991d39953a522534b87",
+        "src/supermimic/imagination/policy_trainer.py": "3da7388319a273faca2c720d8af4dfe916b96f2feaa59c46d78bbca7474ef341",
+        "src/supermimic/imagination/rollout.py": "1005bcb1c979b437ca92338fafb53e754e899d8ca04add3b72eb78a9028fab9d",
+        "src/supermimic/training/loop.py": "5e50e05596449811a68a8718ba61aa9ba3f27a7900cb61679d41d88d273d43b7"
+      },
+      "heading_patched_source_sha256": {
+        "src/supermimic/config.py": "4ae12e24110c6f86b47d2abc9f1965874afc960bce27030e2f424efbcad95bef",
+        "src/supermimic/envs/tracking_env_cfg.py": "39591b071c039f65b236cd7f46d7535513c3aee4ed556b42db7bb77e660afc6b",
+        "src/supermimic/envs/mdp/observations.py": "490ab2ac29b5ae34d07ef688d3f01f729b528e43a4426911b027973d1a7337ab",
+        "src/supermimic/imagination/policy_trainer.py": "8f643e5c8f8532fca717ab807f729d2e63df50f28be622198e194c28681c72b0",
+        "src/supermimic/imagination/rollout.py": "210aa7e6d7c273371c24fe43c1ec14f7e2e0975b7777f22a4bec831f153a5958",
+        "src/supermimic/training/loop.py": "ce3e16089e63b8a6cdeef81e405f9190ef14505ddef58a78a7c809a7d375d3ce",
+        "src/supermimic/heading_feedback.py": "dd32954e4fea67c69ae6026b5780a72353e3dbb10d402eff63b578ebd45f780f"
+      }
+    }
+  ]
+}
