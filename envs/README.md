@@ -22,9 +22,16 @@
 
 ## 依赖配置
 
+- 动作恢复与重定向环境位于 `.venv-motion/`（需先运行 `python3 tools/setup_third_party.py` 拉取源码），在克隆后执行：
+  ```bash
+  uv venv --python 3.10 .venv-motion
+  uv pip install --python .venv-motion/bin/python -r envs/motion/requirements.txt
+  uv pip install --python .venv-motion/bin/python -e third_party/GMR
+  PYTORCH3D_NO_EXTENSION=1 uv pip install --python .venv-motion/bin/python --no-build-isolation third_party/pytorch3d
+  ```
 - 训练环境声明位于 `envs/training/pyproject.toml` 与 `envs/training/uv.lock`，在克隆后执行：
   ```bash
   uv sync --project envs/training
   ```
 - 如果本机离线缓存了 Torch/Warp wheel，可自行在本地覆盖源配置，请勿提交含本机绝对路径的文件。
-- `envs/motion/installed.txt` 与 `envs/training/installed.txt` 记录了当前环境包版本快照供排查参考。
+- `envs/validation.json` 记录了整理仓库时的双环境版本与导入基线；`envs/motion/installed.txt` 与 `envs/training/installed.txt` 为本地导出的包快照（不随 Git 分发）。

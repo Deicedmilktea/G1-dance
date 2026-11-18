@@ -2,6 +2,8 @@
 
 在 MuJoCo 仿真环境中，让宇树 Unitree G1 跳出蔡徐坤的《Old School》。
 
+![从真人舞步到 G1：上排将原片经 GVHMR 和 GMR 转成 G1 动作参考，下排从南大权重依次进行整段舞蹈训练、小跳模仿和高跳 RL。](docs/assets/oldschool-workflow-pencil.png)
+
 ## 实现流程
 
 1. **动作提取与重定向**：使用 GVHMR 从原视频中恢复 3D 人体动作，再通过 GMR 重定向为 G1 的参考动作轨迹。
@@ -25,8 +27,6 @@
 *蓄力 → 腾空 → 落地 → 接回舞步。四帧取自成片右栏的 G1 仿真，使用修订高跳参考和展示初态。*
 
 ## 项目流程与迭代
-
-![从真人舞步到 G1：上排将原片经 GVHMR 和 GMR 转成 G1 动作参考，下排从南大权重依次进行整段舞蹈训练、小跳模仿和高跳 RL。](docs/assets/oldschool-workflow-pencil.png)
 
 [GVHMR](https://github.com/zju3dv/GVHMR) 从单目视频恢复三维人体动作，[GMR](https://github.com/YanjieZe/GMR) 再把它转成 G1 的**原始参考**：逐帧给出机器人要跟随的位置、朝向和关节角度。控制策略从[南大 SuperMimic](https://github.com/NJU-R-L-Group-Embodied-Lab/SuperMimic-Repro-Sim2Real) 的发布权重起步。
 
@@ -85,20 +85,32 @@
 # 拉取 GVHMR / GMR / mjlab / PyTorch3D / SuperMimic-Repro-Sim2Real 并应用补丁
 python3 tools/setup_third_party.py
 
-# 安装训练环境（需要 CUDA 与 uv）
+# 创建动作恢复环境与训练环境（需要 CUDA 与 uv）
+uv venv --python 3.10 .venv-motion
+uv pip install --python .venv-motion/bin/python -r envs/motion/requirements.txt
+uv pip install --python .venv-motion/bin/python -e third_party/GMR
+PYTORCH3D_NO_EXTENSION=1 uv pip install --python .venv-motion/bin/python --no-build-isolation third_party/pytorch3d
 uv sync --project envs/training
 
-# 下载公开视觉与策略预训练权重（SMPL-X 需按 docs/setup.md 自行获取）
-./envs/run.sh motion tools/download_models.py
+# 下载公开视觉与策略预训练权重，并解压南大权重（SMPL-X 需按 docs/setup.md 自行获取）
+./envs/run.sh motion tools/download_models.py --assets yolo vitpose hmr2 gvhmr nju_e13i
+mkdir -p models/supermimic
+tar -xzf data/downloads/nju/e13i_0291000.tar.gz -C models/supermimic
 ./envs/run.sh motion tools/check_models.py --verify
 ```
 
 ### 2. 动作恢复、分阶段训练与评测
 
 ```bash
-# 1) 从原视频恢复人体动作并转成 50 Hz G1 训练轨迹
+# 1) 从原视频恢复人体动作、经 GMR 重定向为 CSV，再转成 50 Hz G1 训练轨迹
 ./envs/run.sh motion tools/reconstruct_motion.py --video data/video/oldschool_full.mp4 --stage all --static-camera
-./envs/run.sh training tools/prepare_training_motion.py --csv <retargeted.csv> --output outputs/motions/oldschool_full_v1.npz
+GMR_ROOT=third_party/GMR ./envs/run.sh motion third_party/SuperMimic-Repro-Sim2Real/tools/video2motion/gvhmr_to_supermimic.py \
+  --gvhmr_pred outputs/gvhmr/oldschool_full_v1/hmr4d_results.pt \
+  --name oldschool_full --floor_mode drift \
+  --out_dir outputs/retarget/oldschool_full_v1/drift \
+  --robot_xml third_party/mjlab/src/mjlab/asset_zoo/robots/unitree_g1/xmls/g1.xml \
+  --init_from_human --restart_tol 0.1
+./envs/run.sh training tools/prepare_training_motion.py --csv outputs/retarget/oldschool_full_v1/drift/oldschool_full.csv --output outputs/motions/oldschool_full_v1.npz
 
 # 2) 阶段一：整段舞蹈微调 (FT1)
 ./envs/run.sh training tools/finetune_policy.py --config configs/oldschool/ft1.json

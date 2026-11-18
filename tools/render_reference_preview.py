@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -30,7 +31,15 @@ def main():
     raw, final = csv.parent / "reference_preview_raw.mp4", csv.parent / "reference_preview.mp4"
     assert not raw.exists() and not final.exists()
     os.environ.setdefault("MUJOCO_GL", "egl")
-    os.environ["IMAGEIO_FFMPEG_EXE"] = str(ROOT / ".runtime/bin/ffmpeg")
+    local_ffmpeg = ROOT / ".runtime/bin/ffmpeg"
+    if local_ffmpeg.is_file():
+        ffmpeg_bin = str(local_ffmpeg)
+    elif system_ffmpeg := shutil.which("ffmpeg"):
+        ffmpeg_bin = system_ffmpeg
+    else:
+        import imageio_ffmpeg
+        ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+    os.environ["IMAGEIO_FFMPEG_EXE"] = ffmpeg_bin
     upstream = ROOT / "third_party/SuperMimic-Repro-Sim2Real/tools/video2motion/render_preview.py"
     command = [sys.executable, str(upstream), str(csv), str(source), str(raw),
                "--robot_xml", str(ROOT / settings["robot_xml"]), "--height", "720"]
@@ -71,7 +80,7 @@ def main():
                     cv2.imwrite(str(csv.parent / f"reference_preview_frame{i:03d}.jpg"), frame)
     finally:
         capture.release()
-    subprocess.run([str(ROOT / ".runtime/bin/ffmpeg"), "-v", "error", "-i", str(final), "-f", "null", "-"], check=True)
+    subprocess.run([ffmpeg_bin, "-v", "error", "-i", str(final), "-f", "null", "-"], check=True)
     result = {"frames": len(rows), "fps": fps, "width": width, "height": height,
               "duration_s": len(rows)/fps, "complete_decode": True, "last_source_frame_included": True,
               "output": final.relative_to(ROOT).as_posix(), "sampled_frames": sorted(samples),

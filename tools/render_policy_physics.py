@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,7 +30,11 @@ def main():
         raise FileExistsError(output)
     os.environ.setdefault("MUJOCO_GL", "egl")
     os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
-    os.environ["IMAGEIO_FFMPEG_EXE"] = str(ROOT / ".runtime/bin/ffmpeg")
+    ffmpeg_bin = ROOT / ".runtime/bin/ffmpeg"
+    if ffmpeg_bin.is_file():
+        os.environ["IMAGEIO_FFMPEG_EXE"] = str(ffmpeg_bin)
+    elif system_ffmpeg := shutil.which("ffmpeg"):
+        os.environ.setdefault("IMAGEIO_FFMPEG_EXE", system_ffmpeg)
     import imageio.v2 as imageio
     import mujoco
     import numpy as np

@@ -10,7 +10,7 @@ python3 tools/setup_third_party.py
 
 该脚本会读取 `configs/upstream_sources.json`，将 `GVHMR`、`GMR`、`mjlab`、`pytorch3d` 和 `SuperMimic-Repro-Sim2Real` 拉取到 `third_party/` 对应固定 commit，并自动应用 `envs/motion/gmr-gvhmr-batch.patch` 和 `envs/training/heading-feedback.patch`，同时建立 `third_party/GVHMR/inputs/checkpoints` 与 `third_party/GMR/assets/body_models` 的目录映射。
 
-环境使用方式见 [运行环境说明](../envs/README.md)。
+环境搭建与使用方式见 [运行环境说明](../envs/README.md)。若尚未创建 `.venv-motion` 与 `envs/training/.venv`，请先按该文档安装两套 Python 环境再继续下面步骤。
 
 ## 2. 所需模型文件
 
@@ -25,10 +25,12 @@ python3 tools/setup_third_party.py
 | `SMPLX_NEUTRAL.npz` | 人体骨架与形状模型（GVHMR 与 GMR 共用） | 108.75 MB | `models/motion/body_models/smplx/` |
 | `e13i_0291000.tar.gz` | 南大 SuperMimic v1.0 预训练权重 | 266.59 MB | `data/downloads/nju/`（解压至 `models/supermimic/`） |
 
-使用自动化脚本下载公开权重（不包含需要官网授权的 SMPL-X）：
+使用自动化脚本下载公开权重（不包含需要官网授权的 SMPL-X），并解压南大预训练归档：
 
 ```bash
-./envs/run.sh motion tools/download_models.py
+./envs/run.sh motion tools/download_models.py --assets yolo vitpose hmr2 gvhmr nju_e13i
+mkdir -p models/supermimic
+tar -xzf data/downloads/nju/e13i_0291000.tar.gz -C models/supermimic
 ```
 
 ## 3. 手动准备 SMPL-X 模型
@@ -49,4 +51,12 @@ SMPL-X 需用户自行遵守其官方许可并下载：
 
 # 分阶段运行人体动作恢复（默认关闭需要完整 CUDA 渲染器的 PyTorch3D 网格绘制）
 ./envs/run.sh motion tools/reconstruct_motion.py --video data/video/oldschool_full.mp4 --stage all --static-camera
+
+# 使用 GMR 将 GVHMR 结果重定向为 30 fps G1 CSV
+GMR_ROOT=third_party/GMR ./envs/run.sh motion third_party/SuperMimic-Repro-Sim2Real/tools/video2motion/gvhmr_to_supermimic.py \
+  --gvhmr_pred outputs/gvhmr/oldschool_full_v1/hmr4d_results.pt \
+  --name oldschool_full --floor_mode drift \
+  --out_dir outputs/retarget/oldschool_full_v1/drift \
+  --robot_xml third_party/mjlab/src/mjlab/asset_zoo/robots/unitree_g1/xmls/g1.xml \
+  --init_from_human --restart_tol 0.1
 ```
